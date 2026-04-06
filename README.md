@@ -1,7 +1,7 @@
 # Dolphin PPC-to-C Static Recompiler — Prototype
 
 A static recompiler that lifts PowerPC Gekko/Broadway (GameCube/Wii) machine code
-to C source, which can then be compiled by any modern C compiler for the host platform.
+to C source, which can then be compiled by any modern C compiler for the host platform. Fair warning I had some help of Claude AI for the experiment. 
 
 ## Architecture
 
