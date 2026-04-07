@@ -112,29 +112,36 @@ int main(void) {
     return 0;
 }
 ```
-
 ## Instruction coverage
 
-| Group            | Status                                      |
-|------------------|---------------------------------------------|
-| Integer ALU      | ✅ Full (add, sub, mul, div, shifts, rotate) |
-| Integer compare  | ✅ cmpi / cmpli / cmp / cmpl                |
-| CR logical       | ✅ crnor / crandc / crxor / crand / creqv / crorc / cror / crnand / mcrf |
-| Branches         | ✅ b / bc / blr / bcctr (direct + indirect) |
-| Load/Store int   | ✅ D-form + X-form + update forms           |
-| Load/Store FP    | ✅ lfs/lfd/stfs/stfd + update + X-form      |
-| FP arithmetic    | ✅ fadd/fsub/fmul/fdiv/fsqrt/fmadd/fmsub …  |
-| FP compare       | ✅ fcmpu / fcmpo                            |
-| FP convert       | ✅ frsp / fctiw / fctiwz                    |
-| Paired-single    | ✅ ps_add/sub/mul/div/madd/neg/mr/abs/merge |
-| System / SPR     | ✅ mfspr/mtspr (LR,CTR,XER,SRR0/1) + stubs |
-| Cache hints      | ✅ dcbz (zero 32-byte line) + no-op stubs  |
+| Group              | Status                                                                 |
+|--------------------|------------------------------------------------------------------------|
+| Integer ALU        | ✅ Full (add/sub/mul/div/shifts/rotate, all Rc/OE variants)            |
+| Integer compare    | ✅ cmpi / cmpli / cmp / cmpl → CR field update                        |
+| CR logical         | ✅ crnor / crandc / crxor / crnand / crand / creqv / crorc / cror / mcrf |
+| Branches           | ✅ b / bc / blr / bcctr — direct, conditional, indirect                |
+| Jump-table (bctr)  | ✅ Pattern-matched & recovered; emits `switch(s->ctr)` with real gotos |
+| Load/Store int     | ✅ D-form + X-form + update forms (lwz/stw/lbz/stb/lhz/sth/lha/…)    |
+| Load/Store FP      | ✅ lfs/lfd/stfs/stfd + update forms + X-form variants                  |
+| PSQ loads/stores   | ✅ psq_l / psq_lu / psq_st / psq_stu — full GQR type/scale decode      |
+| FP arithmetic      | ✅ fadd/fsub/fmul/fdiv/fsqrt/fmadd/fmsub/fnmadd/fnmsub (s + d)        |
+| FP compare         | ✅ fcmpu / fcmpo → CR field update                                     |
+| FP convert         | ✅ frsp / fctiw / fctiwz / fneg / fmr / fabs / fnabs                  |
+| FP exceptions      | ✅ FPSCR sticky bits + FPRF updated via fenv.h (opt-in with `-fpscr`)  |
+| Paired-single      | ✅ ps_add/sub/mul/div/madd/msub/nmadd/nmsub/neg/mr/abs/nabs/merge/res  |
+| System / SPR       | ✅ mfspr/mtspr: LR, CTR, XER, DEC, SRR0/1, GQR0-7                    |
+| Cache hints        | ✅ dcbz (zero 32-byte line); dcbf/dcbst/icbi/sync/eieio = no-ops       |
+| Hardware registers | ✅ Full GC/Wii peripheral map: CP, VI, PE, MI, DSP, DI, SI, EXI, AI   |
+|                    |    PI, plus Wii-only IPC, USB, AHB — 16-bit and 32-bit access   
 
 ## Known limitations
-
-- **Indirect branches through a table (`bctr`)** fall back to dispatcher return;
-  a jump-table recovery pass is not yet implemented.
-- **Paired-single quantized loads/stores** (`psq_l`/`psq_st`) emit stubs; the
-  GQR scaling logic is not yet modelled.
-- **Floating-point exceptions and FPSCR flags** are not updated (stubs only).
-- **Wii IPC / DSP / VI registers** beyond basic PI are not emulated.
+- **Indirect branches without a recoverable table** still fall back to the
+  dispatcher return. The pattern-matcher requires the `lis/addi/lwzx/mtctr/bctr`
+  sequence to be intact in the same basic block; obfuscated or PIE code may need
+  manual `-entry` hints.
+- **`lswi`/`lswx`/`stswi`/`stswx`** (string load/store) are not yet lifted;
+  they emit `rt_unimplemented`.
+- **Wii IPC** beyond the basic mailbox acknowledgement stub is not modelled.
+  Full OS-level IPC (IOCTL, file I/O, USB) requires a Starlet ARM co-simulation.
+- **DSI/ISI exceptions** from bad memory accesses are not raised; out-of-bounds
+  guest addresses wrap silently within `mem_size`.
